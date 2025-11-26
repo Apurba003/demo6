@@ -253,6 +253,13 @@ class KeystrokeAnalyzer {
 
             if (data.status === "success") {
                 this.displayResults(data.result);
+                
+                // Show notification about saved file
+                if (data.saved_file) {
+                    this.updateActivity(`Data saved as ${data.saved_file}`);
+                    this.showNotification(`✅ Data saved as ${data.saved_file}`, 'success');
+                }
+                
                 this.updateActivity('Authentication analysis completed');
             } else {
                 throw new Error(data.message || 'Authentication failed');
@@ -278,6 +285,14 @@ class KeystrokeAnalyzer {
         // Scroll to results
         resultsDiv.scrollIntoView({ behavior: 'smooth' });
 
+        // Show saved file info if available
+        let savedFileInfo = '';
+        if (result.file_info.saved_as) {
+            savedFileInfo = `<div style="background: #e7f3ff; padding: 10px; border-radius: 5px; margin-top: 10px;">
+                <i class="fas fa-save"></i> <strong>Data saved as:</strong> ${result.file_info.saved_as}
+            </div>`;
+        }
+
         // Update main result display
         if (result.authentication_result.final_decision === 'AUTHENTICATED') {
             authResult.className = 'result-card result-authentic';
@@ -285,6 +300,7 @@ class KeystrokeAnalyzer {
             resultText.innerHTML = `
                 <strong>Identity Verified</strong><br>
                 Your typing pattern matches the enrolled user with high confidence.
+                ${savedFileInfo}
             `;
         } else {
             authResult.className = 'result-card result-impostor';
@@ -292,6 +308,7 @@ class KeystrokeAnalyzer {
             resultText.innerHTML = `
                 <strong>Identity Not Verified</strong><br>
                 Your typing pattern does not match the enrolled user.
+                ${savedFileInfo}
             `;
         }
 
@@ -426,7 +443,7 @@ class KeystrokeAnalyzer {
         if (show) {
             loadingDiv.style.display = 'block';
             authButton.disabled = true;
-            authButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analyzing...';
+            authButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analyzing & Saving...';
 
             // Animate progress bar
             let progress = 0;

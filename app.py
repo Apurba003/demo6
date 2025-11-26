@@ -28,6 +28,49 @@ def get_verifier():
             verifier = None
     return verifier
 
+def get_next_sample_number():
+    """Get the next available sample number"""
+    if not os.path.exists(Config.DATA_DIR):
+        os.makedirs(Config.DATA_DIR)
+    
+    existing_files = [f for f in os.listdir(Config.DATA_DIR) 
+                     if f.startswith('sample') and f.endswith('.csv')]
+    
+    if not existing_files:
+        return 1
+    
+    # Extract numbers from existing files
+    numbers = []
+    for filename in existing_files:
+        try:
+            num = int(filename.replace('sample', '').replace('.csv', ''))
+            numbers.append(num)
+        except ValueError:
+            continue
+    
+    return max(numbers) + 1 if numbers else 1
+
+def save_keystroke_data(keystrokes):
+    """Save keystroke data to a CSV file with next available sample number"""
+    try:
+        # Get next sample number
+        sample_number = get_next_sample_number()
+        filename = f'sample{sample_number}.csv'
+        filepath = os.path.join(Config.DATA_DIR, filename)
+        
+        # Convert keystrokes to DataFrame
+        df = pd.DataFrame(keystrokes)
+        
+        # Save to CSV
+        df.to_csv(filepath, index=False)
+        
+        logging.info(f"Saved keystroke data to {filepath}")
+        return filepath, sample_number
+    
+    except Exception as e:
+        logging.error(f"Failed to save keystroke data: {e}")
+        return None, None
+
 @app.route('/')
 def index():
     """Main page"""
@@ -52,6 +95,14 @@ def api_verify():
                 'message': f'Insufficient keystrokes. Minimum required: {Config.MIN_KEYSTROKES}'
             }), 400
         
+        # Save keystroke data to CSV file
+        saved_filepath, sample_number = save_keystroke_data(keystrokes)
+        
+        if saved_filepath is None:
+            logging.warning("Failed to save keystroke data, but continuing with verification")
+        else:
+            logging.info(f"Keystroke data saved as sample{sample_number}.csv")
+        
         # Convert to DataFrame for processing
         df = pd.DataFrame(keystrokes)
         
@@ -69,7 +120,8 @@ def api_verify():
         # Create temporary result using features
         result = {
             'file_info': {
-                'filename': 'realtime_verification',
+                'filename': f'sample{sample_number}.csv' if sample_number else 'realtime_verification',
+                'saved_as': f'sample{sample_number}.csv' if sample_number else None,
                 'keystroke_count': len(keystrokes),
                 'verification_time': datetime.now().isoformat()
             },
@@ -93,7 +145,8 @@ def api_verify():
         
         return jsonify({
             'status': 'success',
-            'result': result
+            'result': result,
+            'saved_file': f'sample{sample_number}.csv' if sample_number else None
         })
         
     except Exception as e:
@@ -184,7 +237,8 @@ def api_statistics():
     return jsonify({
         'data_files_count': len(data_files),
         'model_status': 'loaded' if get_verifier() else 'not_loaded',
-        'system_uptime': datetime.now().isoformat()
+        'system_uptime': datetime.now().isoformat(),
+        'next_sample_number': get_next_sample_number()
     })
 
 @app.errorhandler(404)
@@ -212,6 +266,7 @@ def main():
     print(f"📁 Data directory: {Config.DATA_DIR}")
     print(f"🤖 Model directory: {Config.MODEL_DIR}")
     print(f"🌐 Web interface: http://localhost:5000")
+    print(f"💾 Next sample will be saved as: sample{get_next_sample_number()}.csv")
     
     app.run(
         host='0.0.0.0',
