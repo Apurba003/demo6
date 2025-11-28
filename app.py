@@ -76,6 +76,16 @@ def index():
     """Main page"""
     return render_template('index.html')
 
+@app.route('/register')
+def register():
+    """Registration page"""
+    return render_template('register.html')
+
+@app.route('/login')
+def login():
+    """Login page"""
+    return render_template('login.html')
+
 @app.route('/api/verify', methods=['POST'])
 def api_verify():
     """API endpoint for real-time verification"""
