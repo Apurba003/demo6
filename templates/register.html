@@ -20,6 +20,12 @@
                 <p>Create your secure account today</p>
             </div>
             
+            {% if error %}
+            <div style="color: #ff4444; background: rgba(255, 68, 68, 0.1); padding: 10px; border-radius: 10px; margin-bottom: 20px; text-align: center; border: 1px solid rgba(255, 68, 68, 0.2);">
+                {{ error }}
+            </div>
+            {% endif %}
+
             <form action="/register" method="POST">
                 <div class="form-group">
                     <div class="input-wrapper">

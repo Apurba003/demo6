@@ -1,4 +1,5 @@
-from flask import Flask, render_template, request, jsonify, session
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash
+from flask_pymongo import PyMongo
 import pandas as pd
 import os
 import json
@@ -6,11 +7,16 @@ import logging
 from datetime import datetime
 from config import Config
 from utils.feature_extractor import AdvancedFeatureExtractor
+from werkzeug.security import generate_password_hash, check_password_hash
 
 # Initialize Flask app
 app = Flask(__name__)
+app.config.from_object(Config)
 app.secret_key = 'keystroke-dynamics-optimized-secret-key'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+
+# Initialize MongoDB
+mongo = PyMongo(app)
 
 # Global variables
 verifier = None
@@ -74,17 +80,60 @@ def save_keystroke_data(keystrokes):
 @app.route('/')
 def index():
     """Main page"""
-    return render_template('index.html')
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    return render_template('index.html', user_name=session.get('user_name'))
 
-@app.route('/register')
+@app.route('/register', methods=['GET', 'POST'])
 def register():
     """Registration page"""
+    if request.method == 'POST':
+        name = request.form.get('name')
+        email = request.form.get('email')
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+
+        if password != confirm_password:
+            # You might want to pass this error to the template
+            return render_template('register.html', error='Passwords do not match')
+
+        existing_user = mongo.db.users.find_one({'email': email})
+        if existing_user:
+            return render_template('register.html', error='Email already exists')
+
+        hashed_password = generate_password_hash(password)
+        mongo.db.users.insert_one({
+            'name': name,
+            'email': email,
+            'password': hashed_password,
+            'created_at': datetime.utcnow()
+        })
+        
+        return redirect(url_for('login'))
+
     return render_template('register.html')
 
-@app.route('/login')
+@app.route('/login', methods=['GET', 'POST'])
 def login():
     """Login page"""
+    if request.method == 'POST':
+        email = request.form.get('email')
+        password = request.form.get('password')
+
+        user = mongo.db.users.find_one({'email': email})
+        if user and check_password_hash(user['password'], password):
+            session['user_id'] = str(user['_id'])
+            session['user_name'] = user['name']
+            return redirect(url_for('index'))
+        else:
+            return render_template('login.html', error='Invalid email or password')
+
     return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
 
 @app.route('/api/verify', methods=['POST'])
 def api_verify():

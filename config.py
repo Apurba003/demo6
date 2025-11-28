@@ -48,6 +48,9 @@ class Config:
     # Security thresholds
     CONFIDENCE_THRESHOLD = 75.0
     ANOMALY_THRESHOLD = 30.0
+
+    # Database settings
+    MONGO_URI = os.environ.get('MONGO_URI', 'mongodb://localhost:27017/keystroke_dynamics')
     MIN_KEYSTROKES = 8
     
     # Training
